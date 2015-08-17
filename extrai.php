@@ -6,10 +6,36 @@
     
     <body>
         <?php
+        
             //importa a biblioteca de raspagem
             require './simple_html_dom.php';
             include  './upgrade.database.php';
             
+            //variaveis para controlar a raspagem
+            $prox_estado = 0;
+            $prox_cidade = 0;
+            $prox_cand = 0;
+     
+            $arquivo = fopen("control.txt", "r");
+            $linha =  fgets($arquivo);
+            
+            //raspagem está começando do inicio
+            if($linha == ''){
+                echo "Iniciando Raspagem do zero";
+                fclose($arquivo);
+                $arquivo = fopen("control.txt", "w");
+                fwrite($arquivo, "0 0 0"); 
+            }
+            
+            else{
+                $estado_cidade = explode(" ", $linha);
+                $prox_estado = $estado_cidade[0];
+                $prox_cidade = $estado_cidade[1];
+                $prox_cand =$estado_cidade[2];
+                echo 'Reiniciado a raspagem do Estado:'.$prox_estado.' e Cidade:'.$prox_cidade.'</br>';
+            }
+            
+            fclose($arquivo);
             //url de que sera feita a raspagem
             $url = "http://divulgacand2012.tse.jus.br/divulgacand2012/ResumoCandidaturas.action";
 
@@ -19,12 +45,12 @@
             //Pega as tags que possui informações sobre cada estado
             $estados = $html->find("area[shape=poly]");
 
-            $cont = 0;
-            $cont2 = 0;
+            $contEstado = 0;
+            $contCidade = 0;
             foreach ($estados as $estado) {
 
                 //Usar apenas o estado de alagoas
-                if ($cont == 1) {
+                if ($contEstado >= $prox_estado) {
 
                     //pega a url que leva ao estado
                     $urlEstado = $estado->href;
@@ -50,11 +76,9 @@
                     //pega a tag img que possui a chamada ao java script que exibe os prefeitos ou vereadores de uma cidade
                     $cidades = $html->find("tr[class=odd gradeX] img");
                     
-                    //(url prefeitos cid 1,url vereadores cid 1, url prefeitos cid 2, url vereadores cid 2 ,...)
                     foreach ($cidades as $cidade) {
-
-                        //if para pegar apenas os prefeitos da primeira cidade
-                        if ($cont2 == 0) {
+                        
+                        if ($contCidade >= $prox_cidade) {
 
                             //limpa os elementos do onclick deixando apenas o id do cargo(11 ou 13) e da Cidade 
                             $idCidPoli = str_replace('onPesquisaClick(this, ', '', $cidade->onclick);
@@ -80,7 +104,7 @@
                             //carrega o html com todos prefeitos||vereadores vereadores da cidade
                             $html = file_get_html($urlAjaxPrefeitoVereador);
 
-                            //pega os input com o id e com a ultima atualização do politico
+                            //pega os input com o id e a ultima atualização do politico
                             $candidato = $html->find("tr[class=odd gradeX] input");
 
                             //array para guardar os id dos candidatos e id da ultima atualização da cidade
@@ -101,18 +125,35 @@
                             $i = 0;
                             //pega os dados(id prefeito||vereador e id ult atualização) de cada prefeito||vereador da cidade
                             for ($i; $i < $j; $i++) {
-                                //monta a url que leva aos dados de cada candidato
+                                if($i >= $prox_cand){
+                                    //monta a url que leva aos dados de cada candidato
                                 $urlDadosCandidato = "http://divulgacand2012.tse.jus.br/divulgacand2012/mostrarFichaCandidato.action?sqCandidato=" . $array['sqlCandidato'][$i] . "&codigoMunicipio=" . $codigoMunicipio . "&dtUltimaAtualizacao=" . $array['dtUltimaAtualizacao'][$i];
 
                                 raspaDados($urlDadosCandidato , $codigoMunicipio);
+                                
+                                $arquivo = fopen("control.txt", "w+");    
+                                fwrite($arquivo, $contEstado." ".$contCidade." ".($i + 1));
+                                fclose($arquivo);  
+                                
+                                }
                             }
+                        $prox_cand = 0;
+                        $arquivo = fopen("control.txt", "w+");    
+                        fwrite($arquivo, $contEstado." ".($contCidade+1)." 0");
+                        fclose($arquivo);    
                        }
-                        $cont2++;
-                    }
+                        $contCidade++;
+                    } 
+                    $prox_cidade = 0;
+                    $arquivo = fopen("control.txt", "w+");
+                    fwrite($arquivo, ($contEstado+1)." 0 0");
+                    fclose($arquivo);
                 }
-
-                $cont++;
+                
+                
+                $contEstado++;
             }
+            
             
             
             
@@ -149,7 +190,7 @@
                                 //pega a tabela com os dados do prefeito
                                 $tabelaDados = $html->find("table", 2);
 
-                                echo $urlDadosCandidato.'<br/>';
+                                //echo $urlDadosCandidato.'<br/>';
                                 //variavel para contar a posição da tag td
                                 $dtNumero = 0;
                                 
@@ -229,13 +270,19 @@
                                     $urlVicePrefeito = "http://divulgacand2012.tse.jus.br/divulgacand2012/mostrarFichaCandidato.action?sqCandSuperior=".$codigoVice."&codigoMunicipio=".$codigoMunicipio."&dtUltimaAtualizacao=".$codigoUltAtulizacao;
  
                                 }
-                                
+                                $arq = fopen("dados.txt", "a+");
+                                fwrite($arq, $dados["nomeCompleto"]."\n");
+                                fclose($arq);
+                                /*
                                 foreach ($dados as $elemento3)
                                     echo $elemento3.'<br/>';
+                                 */
                                 //salva os dados do politico
-                                politico($dados["nomeCompleto"], $dados["nomeUrna"], NULL, NULL, NULL, $dados["sexo"], NULL, $dados["dataNascimento"], $dados["estadoCivil"], $dados["ocupacao"], $dados["grauInstrucao"], $dados["nacionalidade"], NULL, NULL, NULL, NULL, $dados["enderecoSite"], NULL, NULL, NULL, $dados["partido"], NULL);
+                                //politico($dados["nomeCompleto"], $dados["nomeUrna"], NULL, NULL, NULL, $dados["sexo"], NULL, $dados["dataNascimento"], $dados["estadoCivil"], $dados["ocupacao"], $dados["grauInstrucao"], $dados["nacionalidade"], NULL, NULL, NULL, NULL, $dados["enderecoSite"], NULL, NULL, NULL, $dados["partido"], NULL);
                                 
                                 //imprime os bens do prefeito ou vereador
+                                
+                                /*
                                 $num = 0;
                                 while($num < $numeroBens){
                                     echo $bens["DescricaoBem"][$num].'<br/>';
@@ -244,6 +291,7 @@
                                     echo '<br/>';
                                     $num++;
                                 }
+                                 */
                                 if(isset($vicePrefeito))
                                     raspaDados($urlVicePrefeito , $codigoMunicipio);
             }
