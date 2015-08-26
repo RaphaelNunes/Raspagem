@@ -10,6 +10,8 @@
             //importa a biblioteca de raspagem
             require './simple_html_dom.php';
             include  './upgrade.database.php';
+            include './properties.php';
+            include "./consultasSPARQL.php";
             
             //variaveis para controlar a raspagem
             $prox_estado = 0;
@@ -32,7 +34,7 @@
                 $prox_estado = $estado_cidade[0];
                 $prox_cidade = $estado_cidade[1];
                 $prox_cand =$estado_cidade[2];
-                echo 'Reiniciado a raspagem do Estado:'.$prox_estado.' e Cidade:'.$prox_cidade.'</br>';
+                echo 'Reiniciado a raspagem do Estado:'.$prox_estado.' e Cidade:'.(($prox_cidade % 2) + 1).'</br>';
             }
             
             fclose($arquivo);
@@ -129,7 +131,7 @@
                                     //monta a url que leva aos dados de cada candidato
                                 $urlDadosCandidato = "http://divulgacand2012.tse.jus.br/divulgacand2012/mostrarFichaCandidato.action?sqCandidato=" . $array['sqlCandidato'][$i] . "&codigoMunicipio=" . $codigoMunicipio . "&dtUltimaAtualizacao=" . $array['dtUltimaAtualizacao'][$i];
 
-                                raspaDados($urlDadosCandidato , $codigoMunicipio);
+                                raspaDados($urlDadosCandidato , $codigoMunicipio , $codigoCargo);
                                 
                                 $arquivo = fopen("control.txt", "w+");    
                                 fwrite($arquivo, $contEstado." ".$contCidade." ".($i + 1));
@@ -143,7 +145,9 @@
                         fclose($arquivo);    
                        }
                         $contCidade++;
-                    } 
+                    }
+                    
+                    $contCidade = 0;
                     $prox_cidade = 0;
                     $arquivo = fopen("control.txt", "w+");
                     fwrite($arquivo, ($contEstado+1)." 0 0");
@@ -161,10 +165,10 @@
             
             
             
-            function raspaDados($urlDadosCandidato , $codigoMunicipio){
+            function raspaDados($urlDadosCandidato , $codigoMunicipio , $codigoCargo){
                                 
                                 $html = file_get_html($urlDadosCandidato);
-
+                                
                                 $formulario = array();
                                 $formulario["Nome para urna eletrônica:"] = "nomeUrna";
                                 $formulario["Número:"] = "numero";
@@ -185,17 +189,39 @@
                                 $formulario["CNPJ de campanha:"] = "cnpj";
                                 $formulario["Limite de gastos:"] = "limiteGasto";
                                 $formulario["Endereço do site do candidato:"] = "endSite";
-
-
-                                //pega a tabela com os dados do prefeito
-                                $tabelaDados = $html->find("table", 2);
-
-                                //echo $urlDadosCandidato.'<br/>';
-                                //variavel para contar a posição da tag td
-                                $dtNumero = 0;
                                 
                                 //array para guardar os dados
                                 $dados = array();
+                                
+                                $tabelaSituacao = $html->find("table",0);
+                                $texto = $tabelaSituacao->find("td",4);
+                                $dados['situacao'] = limpaPalavra($texto->plaintext);
+                                $imagem = $tabelaSituacao->find("img",0);
+                                $dados['img'] = 'http://divulgacand2012.tse.jus.br/divulgacand2012/'.$imagem->src;
+
+                                //pega a tabela com os dados do prefeito
+                                $tabelaDados = $html->find("table", 2);
+                                
+                                //pega a tag com o registro de candidatura e sepera a cidade e o estado
+                                $cidade_estado = $tabelaDados->find("td",0);
+                                $pedacos = explode("(", $cidade_estado->plaintext);
+                                $tamanho = count($pedacos);
+                                $pedacos[$tamanho - 1] = str_replace("&nbsp;/&nbsp;", "||", $pedacos[$tamanho - 1]);
+                                $pedacos[$tamanho - 1] = str_replace(")", "", $pedacos[$tamanho - 1]);
+                                //guarda a cidade e o estado
+                                $cidade_estado = explode("||", $pedacos[$tamanho - 1]);
+                                $dados['cidade_cand'] = limpaPalavra($cidade_estado[0]);
+                                $dados['estado_cand'] = limpaPalavra($cidade_estado[1]);
+                                
+                                if($codigoCargo == 11)
+                                    $dados['cargo'] = 'Prefeito';
+                                else if($codigoCargo == 13)
+                                    $dados['cargo'] = 'Vereador';
+                                else
+                                    $dados['cargo'] = 'Vice-prefeito';
+                                
+                                //variavel para contar a posição da tag td
+                                $dtNumero = 0;
                                 
                                 /*busca todos os tds dentro tabela com os dados do prefeito e confere a informação de
                                 cada um */
@@ -213,8 +239,10 @@
                                     if(isset($formulario[$label])){
                                         
                                         $output = $tabelaDados->find("td", $dtNumero + 1)->plaintext;
+                                        $output = str_replace("&nbsp;", " ", $output);
                                         $output = iconv("ISO-8859-1", "UTF-8", $output);
                                         $output = html_entity_decode($output);
+                                        $output = limpaPalavra($output);
                                         
                                         $dados[$formulario[$label]] = $output;
                                         
@@ -225,6 +253,25 @@
                                     
                                     $dtNumero++;
                                 }
+                                
+                                //confere se o candidato possui site
+                                if($dados['endSite'] == "")
+                                    $dados['endSite'] = NULL;
+                                
+                                //pega a cidade o estado de nascimento do candidato
+                                $cid_est_nasc = explode("/", $dados["naturalidade"]);
+                                $tam = count($cid_est_nasc);
+                                $dados['estado_nascimento'] = limpaPalavra($cid_est_nasc[$tam - 1]);
+                                $cidade_nas;
+                                for($ind = 0 ; $ind < $tam - 1 ; $ind ++)
+                                    $cidade_nas = $cid_est_nasc[$ind]." ";
+                                $dados['cidade_nascimento'] = limpaPalavra($cidade_nas);
+                                
+                                //pega a sigla do partido
+                                $patido = explode('-', $dados['partido']);
+                                $siglaPartido = $patido[count($patido) - 2];
+                                $dados['partido'] = limpaPalavra($siglaPartido);
+                                //echo '</br>Partido|'.$dados['partido'].'|</br>';
                                 
                                 //array para guardas a descrição sobre o bem do candidato
                                 $bens = array();
@@ -270,6 +317,7 @@
                                     $urlVicePrefeito = "http://divulgacand2012.tse.jus.br/divulgacand2012/mostrarFichaCandidato.action?sqCandSuperior=".$codigoVice."&codigoMunicipio=".$codigoMunicipio."&dtUltimaAtualizacao=".$codigoUltAtulizacao;
  
                                 }
+                                salvarDadosNoAllegro($dados, $bens, $numeroBens);
                                 $arq = fopen("dados.txt", "a+");
                                 fwrite($arq, $dados["nomeCompleto"]."\n");
                                 fclose($arq);
@@ -293,7 +341,49 @@
                                 }
                                  */
                                 if(isset($vicePrefeito))
-                                    raspaDados($urlVicePrefeito , $codigoMunicipio);
+                                    raspaDados($urlVicePrefeito , $codigoMunicipio , 15);
+            }
+            
+            function salvarDadosNoAllegro($dados , $bens , $numeroBens){
+                $id = existePoli($dados['nomeCompleto'], $dados['dataNascimento']);
+                echo '</br>'.$dados['nomeCompleto'].' '.$dados['dataNascimento'].'Numero bens:'.$numeroBens.'</br>';
+                
+                echo 'cid: '. $dados['cidade_nascimento']. 'Estado: '.$dados['estado_nascimento'].'</br>';
+                
+                if($dados['endSite'] != NULL)
+                    echo $dados['endSite'].'</br>';
+                else
+                    echo 'Cand não possui site </br>';
+                
+                echo $id.'</br>';
+                if($id == 0){
+                    //enviar a cidade que concorre
+                    //politico($nome_civil, $nome_parlamentar, $nome_pai, $nome_mae, $foto, $sexo, $cor, $data_nascimento, $estado_civil, $ocupacao, $grau_instrucao, $nacionalidade, $cidade_nascimento, $estado_nascimento, $cidade_eleitoral, $estado_eleitoral, $site, $email, $cargo, $cargo_uf, $partido, $situacao)
+                    politico($dados['nomeCompleto'], NULL, NULL, NULL, $dados['img'], $dados['sexo'], NULL, $dados['dataNascimento'], $dados['estadoCivil'], $dados['ocupacao'], $dados['grauInstrucao'], $dados['nacionalidade'], $dados['cidade_nascimento'], $dados['estado_nascimento'], NULL, NULL, $dados['endSite'], NULL, $dados['cargo'], $dados['estado_cand'], $dados['partido'], NULL);
+                }
+                //politco existe no banco
+                
+                    $resultado = NULL;
+                    eleicao($id, "2012", $dados['nomeUrna'], $dados['numero'], $dados['partido'], $dados['cargo'], $dados['estado_cand'], $resultado, $dados['coligacao'], $dados['composicaoColigacao'], $dados['situacao'], $dados['nProtocolo'], $dados['nProcesso'], $dados['cnpj']);
+                    foto_politico($dados['img'], $id);
+                    echo $dados['img'];
+                    $num = 0;
+                    while($num < $numeroBens)
+                    {
+                        declaracao_bens ($id, "2012", $bens["DescricaoBem"][$num], $bens["TipoBem"][$num], $bens["ValorBem"][$num]);
+                        $num++;
+                    }
+            }
+            
+            function limpaPalavra($palavra){
+                //retira quebras de linha e espaços em branco antes e depois da palavra
+                $palavra = trim($palavra);
+                $palavra = str_replace("\r", "", $palavra);
+                $palavra = str_replace("\n", "", $palavra);
+                $palavra = str_replace("\r\n", "", $palavra);
+                $palavra = str_replace("\t", "", $palavra);
+                $palavra = preg_replace("/(<br.*?>)/i","", $palavra);
+                return $palavra;
             }
 
 ?>

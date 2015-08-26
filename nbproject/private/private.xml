@@ -3,6 +3,12 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group name="Group 20150810-06:04:09"/>
-        <group/>
+        <group>
+            <file>file:/var/www/html/raspagem/politico_rdf.inc.php</file>
+            <file>file:/var/www/html/raspagem/control.txt</file>
+            <file>file:/var/www/html/raspagem/teste2.php</file>
+            <file>file:/var/www/html/raspagem/extrai.php</file>
+            <file>file:/var/www/html/raspagem/upgrade.database.php</file>
+        </group>
     </open-files>
 </project-private>
