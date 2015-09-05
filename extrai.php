@@ -195,7 +195,9 @@
                                 
                                 $tabelaSituacao = $html->find("table",0);
                                 $texto = $tabelaSituacao->find("td",4);
-                                $dados['situacao'] = limpaPalavra($texto->plaintext);
+                                $texto = iconv("ISO-8859-1", "UTF-8", $texto->plaintext);
+                                $texto = html_entity_decode($texto);
+                                $dados['situacao'] =  limpaPalavra($texto);
                                 $imagem = $tabelaSituacao->find("img",0);
                                 $dados['img'] = 'http://divulgacand2012.tse.jus.br/divulgacand2012/'.$imagem->src;
 
@@ -209,6 +211,8 @@
                                 $pedacos[$tamanho - 1] = str_replace("&nbsp;/&nbsp;", "||", $pedacos[$tamanho - 1]);
                                 $pedacos[$tamanho - 1] = str_replace(")", "", $pedacos[$tamanho - 1]);
                                 //guarda a cidade e o estado
+                                $pedacos[$tamanho - 1] = iconv("ISO-8859-1", "UTF-8", $pedacos[$tamanho - 1]);
+                                $pedacos[$tamanho - 1] = html_entity_decode($pedacos[$tamanho - 1]);
                                 $cidade_estado = explode("||", $pedacos[$tamanho - 1]);
                                 $dados['cidade_cand'] = limpaPalavra($cidade_estado[0]);
                                 $dados['estado_cand'] = limpaPalavra($cidade_estado[1]);
@@ -248,8 +252,6 @@
                                         
                                         //echo $label . "" . $dados[$formulario[$label]] . '<br/>';
                                     }
-                                    else
-                                        $dados[$formulario[$label]] = NULL;
                                     
                                     $dtNumero++;
                                 }
@@ -296,14 +298,23 @@
                                         $palavra = $t2->find("td", 3)->plaintext;
                                         $palavra = iconv("ISO-8859-1", "UTF-8", $palavra);
                                         $palavra = html_entity_decode($palavra);
+                                        $palavra = str_replace(".", "", $palavra);
+                                        $palavra = str_replace(",", ".", $palavra);
                                         $bens["ValorBem"][$numeroBens] = $palavra;
 
                                         $numeroBens++;
                                     }
                                 }
                                 
-                                $vicePrefeito = $tabelaDados->find('img[src="img/icones/vice.png"]',0);
-                                if(isset($vicePrefeito)){
+                                salvarDadosNoAllegro($dados, $bens, $numeroBens);
+                                    
+                                $arq = fopen("dados.txt", "a+");
+                                fwrite($arq, $dados["nomeCompleto"]."\n");
+                                fclose($arq);
+                                
+                                $vicesPrefeito = $tabelaDados->find('img[src="img/icones/vice.png"]');
+                                foreach ($vicesPrefeito as $vicePrefeito){
+                                    
                                     $vicePrefeito = str_replace('visualizarDadosVice(', '', $vicePrefeito->onclick);
                                     $vicePrefeito = str_replace(',', '', $vicePrefeito);
                                     $vicePrefeito = str_replace('"', '', $vicePrefeito);
@@ -315,62 +326,41 @@
                                     $codigoUltAtulizacao = substr($vicePrefeito, $espaco + 1);
                                     
                                     $urlVicePrefeito = "http://divulgacand2012.tse.jus.br/divulgacand2012/mostrarFichaCandidato.action?sqCandSuperior=".$codigoVice."&codigoMunicipio=".$codigoMunicipio."&dtUltimaAtualizacao=".$codigoUltAtulizacao;
- 
-                                }
-                                salvarDadosNoAllegro($dados, $bens, $numeroBens);
-                                $arq = fopen("dados.txt", "a+");
-                                fwrite($arq, $dados["nomeCompleto"]."\n");
-                                fclose($arq);
-                                /*
-                                foreach ($dados as $elemento3)
-                                    echo $elemento3.'<br/>';
-                                 */
-                                //salva os dados do politico
-                                //politico($dados["nomeCompleto"], $dados["nomeUrna"], NULL, NULL, NULL, $dados["sexo"], NULL, $dados["dataNascimento"], $dados["estadoCivil"], $dados["ocupacao"], $dados["grauInstrucao"], $dados["nacionalidade"], NULL, NULL, NULL, NULL, $dados["enderecoSite"], NULL, NULL, NULL, $dados["partido"], NULL);
-                                
-                                //imprime os bens do prefeito ou vereador
-                                
-                                /*
-                                $num = 0;
-                                while($num < $numeroBens){
-                                    echo $bens["DescricaoBem"][$num].'<br/>';
-                                    echo $bens["TipoBem"][$num].'<br/>';
-                                    echo $bens["ValorBem"][$num].'<br/>';
-                                    echo '<br/>';
-                                    $num++;
-                                }
-                                 */
-                                if(isset($vicePrefeito))
+                                    
                                     raspaDados($urlVicePrefeito , $codigoMunicipio , 15);
+                                    
+                                }
+                                
             }
             
             function salvarDadosNoAllegro($dados , $bens , $numeroBens){
                 $id = existePoli($dados['nomeCompleto'], $dados['dataNascimento']);
-                echo '</br>'.$dados['nomeCompleto'].' '.$dados['dataNascimento'].'Numero bens:'.$numeroBens.'</br>';
+                echo $dados['nomeCompleto'].' '.$dados['dataNascimento'].'</br>';
                 
-                echo 'cid: '. $dados['cidade_nascimento']. 'Estado: '.$dados['estado_nascimento'].'</br>';
+                $consulta = 'select ?ano
+                            where{
+                                <http://ligadonospoliticos.com.br/politico/'.$id.'> polbr:election ?election.
+                                ?election timeline:atYear ?ano                                                    
+                            }';
+                $consulta = consultaSPARQL($consulta);
                 
-                if($dados['endSite'] != NULL)
-                    echo $dados['endSite'].'</br>';
-                else
-                    echo 'Cand não possui site </br>';
+                $candDepois = FALSE;
+                foreach ($consulta as $resul)
+                    if($resul['ano'] > 2012)
+                        $candDepois = TRUE;
                 
-                echo $id.'</br>';
-                if($id == 0){
-                    //enviar a cidade que concorre
-                    //politico($nome_civil, $nome_parlamentar, $nome_pai, $nome_mae, $foto, $sexo, $cor, $data_nascimento, $estado_civil, $ocupacao, $grau_instrucao, $nacionalidade, $cidade_nascimento, $estado_nascimento, $cidade_eleitoral, $estado_eleitoral, $site, $email, $cargo, $cargo_uf, $partido, $situacao)
-                    politico($dados['nomeCompleto'], NULL, NULL, NULL, $dados['img'], $dados['sexo'], NULL, $dados['dataNascimento'], $dados['estadoCivil'], $dados['ocupacao'], $dados['grauInstrucao'], $dados['nacionalidade'], $dados['cidade_nascimento'], $dados['estado_nascimento'], NULL, NULL, $dados['endSite'], NULL, $dados['cargo'], $dados['estado_cand'], $dados['partido'], NULL);
-                }
-                //politco existe no banco
-                
+                //caso o candidadto ainda não esteja cadastrado no banco
+                //Ou caso o candidato tenha concorrido só em 2010
+                if($id == 0 || !$candDepois){
+                    $id = politico_Prefeito_Vereador($dados['nomeCompleto'], $dados['img'], $dados['sexo'], $dados['dataNascimento'], $dados['estadoCivil'], $dados['ocupacao'], $dados['grauInstrucao'], $dados['nacionalidade'], $dados['cidade_nascimento'], $dados['estado_nascimento'], $dados['endSite'], $dados['cargo'],$dados['cidade_cand'] ,$dados['estado_cand'], $dados['partido'], NULL);
+               }
                     $resultado = NULL;
-                    eleicao($id, "2012", $dados['nomeUrna'], $dados['numero'], $dados['partido'], $dados['cargo'], $dados['estado_cand'], $resultado, $dados['coligacao'], $dados['composicaoColigacao'], $dados['situacao'], $dados['nProtocolo'], $dados['nProcesso'], $dados['cnpj']);
+                    eleicao($id, "2012", $dados['nomeUrna'], $dados['numero'], $dados['partido'], $dados['cargo'], $dados['cidade_cand'], $dados['estado_cand'], $resultado, $dados['coligacao'], $dados['composicaoColigacao'], $dados['situacao'], $dados['nProtocolo'], $dados['nProcesso'], $dados['cnpj']);
                     foto_politico($dados['img'], $id);
-                    echo $dados['img'];
-                    $num = 0;
-                    while($num < $numeroBens)
-                    {
-                        declaracao_bens ($id, "2012", $bens["DescricaoBem"][$num], $bens["TipoBem"][$num], $bens["ValorBem"][$num]);
+                  
+                     $num = 0;
+                    while ($num < $numeroBens) {
+                        declaracao_bens($id, "2012", $bens["DescricaoBem"][$num], $bens["TipoBem"][$num], $bens["ValorBem"][$num]);
                         $num++;
                     }
             }
@@ -383,6 +373,8 @@
                 $palavra = str_replace("\r\n", "", $palavra);
                 $palavra = str_replace("\t", "", $palavra);
                 $palavra = preg_replace("/(<br.*?>)/i","", $palavra);
+                //deixa apenas um espaço entre as palavras
+                $palavra = preg_replace('/\s(?=\s)/', '', $palavra);
                 return $palavra;
             }
 
