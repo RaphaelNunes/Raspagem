@@ -35,9 +35,13 @@
                 $respostaJson = json_decode($resposta);
                 $respostaJson = $respostaJson->results;
                 $respostaJson = $respostaJson->bindings[0];
-                $respostaJson = $respostaJson->id;
-                $respostaJson = $respostaJson->value;
-                $respostaJson = (int)$respostaJson;
+                if(!empty($respostaJson->id)){
+                    $respostaJson = $respostaJson->id;
+                    $respostaJson = $respostaJson->value;
+                    $respostaJson = (int)$respostaJson;
+                }
+                else
+                    $respostaJson = null;
 		if($respostaJson == null){
                     return 0;}
 		if($respostaJson != null){return $respostaJson;}
@@ -297,7 +301,6 @@
 
 	}
 
-	
 	function comissao($id_politico, $participacao, $descricao, $data_inicio, $data_fim){
 
 		$format = 'application/sparql-results+json';
@@ -472,8 +475,6 @@
 
 	}
 	
-
-		
 	function declaracao_bens($id_politico, $ano, $descricao, $tipo, $valor){
 
 		$format = 'application/sparql-results+json';
@@ -723,8 +724,6 @@
 
 	}
 
-
-
 	function eleicao($id_politico, $ano, $nome_urna, $numero_candidato, $partido, $cargo, $cidade, $cargo_uf, $resultado, $nome_coligacao, $partidos_coligacao, $situacao_candidatura, $numero_protocolo, $numero_processo, $cnpj_campanha){
 
 		$format = 'application/sparql-results+json';
@@ -934,8 +933,239 @@
 		
 	}
 
-	
+	function eleicao_Prefeito_Vereador($id_politico, $ano, $nome_urna, $numero_candidato, $partido, $cargo, $cidade, $cargo_uf, $resultado, $nome_coligacao, $partidos_coligacao, $situacao_candidatura, $numero_protocolo, $numero_processo, $cnpj_campanha){
+
+		$format = 'application/sparql-results+json';
 		
+		$endereco = "select ?nome_urna ?numero_candidato ?partido ?cargo ?cidade ?cargo_uf ?resultado ?nome_coligacao ?partidos_coligacao ?situacao_candidatura ?numero_processo ?cnpj_campanha {  
+					 <http://ligadonospoliticos.com.br/politico/$id_politico>  polbr:election ?election.
+					 ?election timeline:atYear \"$ano\".
+                                         ?election polbr:protocolNumber \"$numero_protocolo\".
+                                         OPTIONAL { ?election foaf:name ?nome_urna}
+					 OPTIONAL { ?election biblio:number ?numero_candidato }
+					 OPTIONAL { ?election pol:party ?partido }
+					 OPTIONAL { ?election pol:Office ?cargo }
+                                         OPTIONAL { ?election geospecies:City ?cidade }
+					 OPTIONAL { ?election geospecies:State ?cargo_uf }
+					 OPTIONAL { ?election earl:outcome ?resultado }
+					 OPTIONAL { ?election spinrdf:Union ?nome_coligacao }
+					 OPTIONAL { ?election polbr:unionParties ?partidos_coligacao }
+					 OPTIONAL { ?election polbr:situation ?situacao_candidatura }
+					 OPTIONAL { ?election polbr:processNumber ?numero_processo }
+					 OPTIONAL { ?election polbr:CNPJ ?cnpj_campanha }
+
+
+           			}";
+
+                //echo $endereco;
+		$url = urlencode($endereco);
+		$sparqlURL = 'http://localhost:10035/repositories/politicos_brasileiros?query='.$url.'+limit+1';
+
+		
+		$curl = curl_init();
+		curl_setopt($curl, CURLOPT_USERPWD, $GLOBALS['login']);	
+	    	curl_setopt($curl, CURLOPT_URL, $sparqlURL);
+	    	curl_setopt($curl, CURLOPT_RETURNTRANSFER, true); //Recebe o output da url como uma string
+	    	curl_setopt($curl,CURLOPT_HTTPHEADER,array('Accept: '.$format ));
+	    	$resposta = curl_exec( $curl );
+	    	curl_close($curl);
+
+
+		$achou = false;
+		$resposta_decoded = json_decode($resposta);
+
+		
+		//verifica se algum valor da consulta é diferente de null
+		foreach($resposta_decoded->results->bindings as $reg){
+			if($reg != null)
+			{
+				$achou = true;
+			}
+		}
+	
+		if($achou){
+		
+		$objects = array();
+		        $results = json_decode($resposta);//descodifica o objeto json para um array
+			//pega o valor dentro de dois array
+			    foreach($results->results->bindings as $reg){
+				   $obj = new stdClass();
+				   foreach($reg as $field => $value){
+				       $obj->$field = $value->value;
+				   }
+				   $objects[] = $obj;//guarda no array o objeto pretendido
+			       }
+
+
+			if (!empty($objects[0]->nome_urna)){ $NewNomeUrna = $objects[0]->nome_urna ;}else{ $NewNomeUrna = null;}
+			if (!empty($objects[0]->numero_candidato)){ $NewNrCandidato = $objects[0]->numero_candidato ;}else{ $NewNrCandidato = null;}
+			if (!empty($objects[0]->partido)){ $NewPartido = $objects[0]->partido ;}else{ $NewPartido = null;}
+			if (!empty($objects[0]->cargo)){ $NewCargo = $objects[0]->cargo ;}else{ $NewCargo = null;}
+			if (!empty($objects[0]->cidade)){ $NewCidade = $objects[0]->cidade ;}else{ $NewCidade = null;}
+			if (!empty($objects[0]->cargo_uf)){ $NewCargoUf = $objects[0]->cargo_uf ;}else{ $NewCargoUf = null;}
+			if (!empty($objects[0]->resultado)){ $NewResultado = $objects[0]->resultado ;}else{ $NewResultado = null;}
+			if (!empty($objects[0]->nome_coligacao)){ $NewNomeColigacao = $objects[0]->nome_coligacao ;}else{ $NewNomeColigacao = null;}
+			if (!empty($objects[0]->partidos_coligacao)){ $NewPartidosColigacao  = $objects[0]->partidos_coligacao  ;}else{ $NewPartidosColigacao  = null;}
+			if (!empty($objects[0]->situacao_candidatura)){ $NewSituacaoCandidatura = $objects[0]->situacao_candidatura ;}else{ $NewSituacaoCandidatura = null;}
+			//if (!empty($objects[0]->numero_protocolo)){ $NewNrProtocolo = $objects[0]->numero_protocolo ;}else{ $NewNrProtocolo = null;}
+			if (!empty($objects[0]->numero_processo)){ $NewNrProcesso = $objects[0]->numero_processo ;}else{ $NewNrProcesso = null;}
+			if (!empty($objects[0]->cnpj_campanha)){ $NewCnpjCampanha = $objects[0]->cnpj_campanha ;}else{ $NewCnpjCampanha = null;}
+	
+
+			
+			$format = 'application/sparql-results+xml';
+
+			//deletando dados para inserir dados novos
+			$where = "WHERE { <http://ligadonospoliticos.com.br/politico/$id_politico>  polbr:election ?election.
+					 ?election timeline:atYear \"$ano\".
+                                         ?election polbr:protocolNumber \"$numero_protocolo\"
+};";			
+
+			$endereco = "DELETE { ?election foaf:name \"$NewNomeUrna\" } $where
+				     DELETE { ?election biblio:number \"$NewNrCandidato\" } $where
+				     DELETE { ?election pol:party \"$NewPartido\" } $where
+				     DELETE { ?election pol:Office \"$NewCargo\" } $where
+                                     DELETE { ?election geospecies:City \"$NewCidade\" } $where
+				     DELETE { ?election geospecies:State \"$NewCargoUf\" } $where
+				     DELETE { ?election earl:outcome \"$NewResultado\" } $where
+				     DELETE { ?election spinrdf:Union \"$NewNomeColigacao\" } $where
+				     DELETE { ?election polbr:unionParties \"$NewPartidosColigacao\" } $where
+				     DELETE { ?election polbr:situation \"$NewSituacaoCandidatura\" } $where
+				     DELETE { ?election polbr:processNumber \"$NewNrProcesso\" } $where
+				     DELETE { ?election polbr:CNPJ \"$NewCnpjCampanha\" } $where
+
+				";
+			 //echo $endereco;
+			$url = urlencode($endereco);
+			$sparqlURL = 'http://localhost:10035/repositories/politicos_brasileiros?query='.$url.'';		
+
+			$curl = curl_init();
+			curl_setopt($curl, CURLOPT_USERPWD, $GLOBALS['login']);	
+		    	curl_setopt($curl, CURLOPT_URL, $sparqlURL);
+			curl_setopt($curl, CURLOPT_CUSTOMREQUEST, "POST"); // Delete precisa ser feito por POST
+		    	curl_setopt($curl, CURLOPT_RETURNTRANSFER, true); //Recebe o output da url como uma string
+		    	curl_setopt($curl,CURLOPT_HTTPHEADER,array('Accept: '.$format ));
+		    	$resposta = curl_exec( $curl );
+
+		    	curl_close($curl);
+
+
+			if ($nome_urna != null ){ $NewNomeUrna = $nome_urna ;}else{ $NewNomeUrna = $objects[0]->nome_urna ;}
+			if ($numero_candidato != null){ $NewNrCandidato = $numero_candidato ;}else{ $NewNrCandidato = $objects[0]->numero_candidato;}
+			if ($partido != null ){ $NewPartido = $partido ;}else{ $NewPartido = $objects[0]->partido ;}
+			if ($cargo != null ){ $NewCargo = $cargo ;}else{ $NewCargo = $objects[0]->cargo ;}
+			if ($cidade != null ){ $NewCidade = $cidade ;}else{ $NewCidade = $objects[0]->cidade ;}
+			if ($cargo_uf != null ){ $NewCargoUf = $cargo_uf ;}else{ $NewCargoUf = $objects[0]->cargo_uf ;}
+			if ($resultado != null ){ $NewResultado = $resultado ;}else{ $NewResultado = $objects[0]->resultado ;}
+			if ($nome_coligacao != null ){ $NewNomeColigacao = $nome_coligacao ;}else{ $NewNomeColigacao = $objects[0]->nome_coligacao ;}
+			if ($partidos_coligacao != null ){ $NewPartidosColigacao = $partidos_coligacao ;}else{ $NewPartidosColigacao= $objects[0]->partidos_coligacao ;}
+			if ($situacao_candidatura != null ){ $NewSituacaoCandidatura = $situacao_candidatura ;}else{ $NewSituacaoCandidatura = $objects[0]->situacao_candidatura ;}
+			//if ($numero_protocolo != null ){ $NewNrProtocolo = $numero_protocolo ;}else{ $NewNrProtocolo = $objects[0]->numero_protocolo ;}
+			if ($numero_processo != null ){ $NewNrProcesso = $numero_processo ;}else{ $NewNrProcesso = $objects[0]->numero_processo ;}
+			if ($cnpj_campanha != null ){ $NewCnpjCampanha = $cnpj_campanha ;}else{ $NewCnpjCampanha = $objects[0]->cnpj_campanha ;}
+
+			
+
+			//inserindo os novos
+			$endereco = "insert {";
+                        if(isset($NewNomeUrna))
+                            $endereco = $endereco." ?election foaf:name \"$NewNomeUrna\" .";
+                        if(isset($NewNrCandidato))
+                            $endereco = $endereco."?election biblio:number \"$NewNrCandidato\" .";
+                        if(isset($NewPartido))
+                            $endereco = $endereco."?election pol:party \"$NewPartido\" .";
+                        if(isset($NewCargo))
+                            $endereco = $endereco."?election pol:Office \"$NewCargo\" .";
+                        if(isset($NewCidade))
+                            $endereco = $endereco."?election geospecies:City \"$NewCidade\" .";   
+			if(isset($NewCargoUf))			  
+                            $endereco = $endereco."?election geospecies:State \"$NewCargoUf\" .";
+			if(isset($NewResultado))			  
+                            $endereco = $endereco."?election earl:outcome \"$NewResultado\" .";
+			if(isset($NewNomeColigacao))
+                            $endereco = $endereco."?election spinrdf:Union \"$NewNomeColigacao\" .";
+			if(isset($NewPartidosColigacao))			  
+                            $endereco = $endereco."?election polbr:unionParties \"$NewPartidosColigacao\".";
+                        if(isset($NewSituacaoCandidatura))
+                            $endereco = $endereco."?election polbr:situation \"$NewSituacaoCandidatura\" .";
+			if(isset($NewNrProcesso))			  
+                            $endereco = $endereco."?election polbr:processNumber \"$NewNrProcesso\" .";
+			if(isset($NewCnpjCampanha))			  
+                            $endereco = $endereco."?election polbr:CNPJ \"$NewCnpjCampanha\" ";
+
+		   	$endereco = $endereco." } where{ <http://ligadonospoliticos.com.br/politico/$id_politico>  polbr:election ?election.
+					 ?election timeline:atYear \"$ano\".
+                                         ?election polbr:protocolNumber \"$numero_protocolo\"}"; 
+			
+
+                         //echo $endereco;
+			$url = urlencode($endereco);
+			$sparqlURL = 'http://localhost:10035/repositories/politicos_brasileiros?query='.$url.'';		
+
+			$curl = curl_init();
+			curl_setopt($curl, CURLOPT_USERPWD, $GLOBALS['login']);	
+		    	curl_setopt($curl, CURLOPT_URL, $sparqlURL);
+			curl_setopt($curl, CURLOPT_CUSTOMREQUEST, "POST"); 
+		    	curl_setopt($curl, CURLOPT_RETURNTRANSFER, true); //Recebe o output da url como uma string
+		    	curl_setopt($curl,CURLOPT_HTTPHEADER,array('Accept: '.$format ));
+		    	$resposta = curl_exec( $curl );
+
+		    	curl_close($curl);
+
+
+		}
+		else{
+			
+			$format = 'application/sparql-results+xml';
+		
+			$endereco = "insert data {  
+						 <http://ligadonospoliticos.com.br/politico/$id_politico>  polbr:election _:election.
+						 _:election timeline:atYear \"$ano\".";
+                        if(isset($nome_urna))
+                            $endereco = $endereco."_:election foaf:name \"$nome_urna\" .";
+                        if(isset($numero_candidato))
+                            $endereco = $endereco."_:election biblio:number \"$numero_candidato\" .";
+                        if(isset($partido))
+                            $endereco = $endereco."_:election pol:party \"$partido\" .";
+                        if(isset($cargo))
+                            $endereco = $endereco."_:election pol:Office \"$cargo\" .";
+                        if(isset($cidade))
+                            $endereco = $endereco."_:election geospecies:City \"$cidade\" .";   
+			if(isset($cargo_uf))			  
+                            $endereco = $endereco."_:election geospecies:State \"$cargo_uf\" .";
+			if(isset($resultado))			  
+                            $endereco = $endereco."_:election earl:outcome \"$resultado\" .";
+			if(isset($nome_coligacao))
+                            $endereco = $endereco."_:election spinrdf:Union \"$nome_coligacao\" .";
+			if(isset($partidos_coligacao))			  
+                            $endereco = $endereco."_:election polbr:unionParties \"$partidos_coligacao\".";
+                        if(isset($situacao_candidatura))
+                            $endereco = $endereco."_:election polbr:situation \"$situacao_candidatura\" .";
+                        if(isset($numero_protocolo))
+                            $endereco = $endereco."_:election polbr:protocolNumber \"$numero_protocolo\" .";
+			if(isset($numero_processo))			  
+                            $endereco = $endereco."_:election polbr:processNumber \"$numero_processo\" .";
+			if(isset($cnpj_campanha))			  
+                            $endereco = $endereco."_:election polbr:CNPJ \"$cnpj_campanha\" .";
+                        $endereco = $endereco."}";
+                        
+			$url = urlencode($endereco);
+			$sparqlURL = 'http://localhost:10035/repositories/politicos_brasileiros?query='.$url.'';			
+
+			$curl = curl_init();
+			curl_setopt($curl, CURLOPT_USERPWD, $GLOBALS['login']);	
+		    	curl_setopt($curl, CURLOPT_URL, $sparqlURL);
+			curl_setopt($curl, CURLOPT_CUSTOMREQUEST, "POST"); 
+		    	curl_setopt($curl, CURLOPT_RETURNTRANSFER, true); //Recebe o output da url como uma string
+		    	curl_setopt($curl,CURLOPT_HTTPHEADER,array('Accept: '.$format ));
+		    	$resposta = curl_exec( $curl );
+		    	curl_close($curl);
+
+
+		}
+		
+	}
+	
 	function endereco_parlamentar_politico($id_politico, $anexo, $ala, $gabinete, $email, $telefone, $fax, $tipo, $rua, $bairro, $cidade, $estado, $CEP, $CNPJ, $telefone_parlamento, $disque, $site){
 		$format = 'application/sparql-results+json';
 		$politico = "<http://ligadonospoliticos.com.br/politico/".$id_politico.">";
@@ -1130,7 +1360,6 @@
 		
 	}
 	
-	
 	function lideranca($id_politico, $descricao, $tipo, $data_inicio, $data_fim){
 
 		$format = 'application/sparql-results+json';
@@ -1304,7 +1533,6 @@
 
 	}
 	
-	
 	function mandato($id_politico, $cargo, $data_inicio, $data_fim){
 
 		$format = 'application/sparql-results+json';
@@ -1477,7 +1705,6 @@
 		
 	}
 		
-	
 	function missao($id_politico, $descricao, $tipo, $data_inicio, $data_fim, $documento){
 
 
@@ -1703,7 +1930,7 @@
 
     }
 	
-    function politico_Prefeito_Vereador($nome_civil, $foto, $sexo, $data_nascimento, $estado_civil, $ocupacao, $grau_instrucao, $nacionalidade, $cidade_nascimento, $estado_nascimento, $site, $cargo, $cidade ,$cargo_uf, $partido, $situacao){
+        function politico_Prefeito_Vereador($nome_civil, $foto, $sexo, $data_nascimento, $estado_civil, $ocupacao, $grau_instrucao, $nacionalidade, $cidade_nascimento, $estado_nascimento, $site, $cargo, $cidade ,$cargo_uf, $partido, $situacao){
             //usando a função existePoli para descobrir o ID.
 		$id_politico = existePoli($nome_civil, $data_nascimento);
                 $id = $id_politico;
@@ -1906,18 +2133,10 @@
                         $endereco = $endereco . "$novopolitico foaf:birthday \"$data_nascimento\" .";
                     if (isset($cidade_nascimento))
                         $endereco = $endereco . "$novopolitico being:place-of-birth \"$cidade_nascimento\" .";
-                    if (isset($nome_parlamentar))
-                        $endereco = $endereco . "$novopolitico polbr:governmentalName \"$nome_parlamentar\" .";
-                    if (isset($nome_pai))
-                        $endereco = $endereco . "$novopolitico bio:father \"$nome_pai\". ";
-                    if (isset($nome_mae))
-                        $endereco = $endereco . "$novopolitico bio:mother \"$nome_mae\" .";
                     if (isset($foto))
                         $endereco = $endereco . "$novopolitico foaf:img \"$foto\" .";
                     if (isset($sexo))
                         $endereco = $endereco . "$novopolitico foaf:gender \"$sexo\" .";
-                    if (isset($cor))
-                        $endereco = $endereco . "$novopolitico person:complexion \"$cor\" .";
                     if (isset($estado_civil))
                         $endereco = $endereco . "$novopolitico polbr:maritalStatus \"$estado_civil\" .";
                     if (isset($ocupacao))
@@ -1930,8 +2149,6 @@
                         $endereco = $endereco . "$novopolitico polbr:state-of-birth \"$estado_nascimento\" .";
                     if (isset($site))
                         $endereco = $endereco . "$novopolitico foaf:homepage \"$site\" .";
-                    if (isset($email))
-                        $endereco = $endereco . "$novopolitico biblio:Email \"$email\" .";
                     if (isset($cargo))
                         $endereco = $endereco . "$novopolitico pol:Office \"$cargo\" .";
                     if (isset($cargo_uf))
@@ -2227,10 +2444,6 @@
 
     }
 
-	
-	
-
-
 	function pronunciamento($id_politico, $tipo, $data, $casa, $partido, $uf, $resumo){
 
 
@@ -2416,7 +2629,6 @@
 
 	}
 	
-	
 	function proposicao($id_politico, $titulo, $data, $casa, $tipo, $descricao_tipo, $ementa){
 
 		$format = 'application/sparql-results+json';
@@ -2599,7 +2811,6 @@
 		
 	}
 	
-
 	function return_id_fonte($url){
 
 
@@ -2643,7 +2854,6 @@
 
 
 	}
-
 
 	function fonte_politico($id_politico, $id_fonte){
 

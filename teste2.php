@@ -1,48 +1,51 @@
 <?php
-   
-    /*
-    include './simple_html_dom.php';
-    $html = file_get_html('http://divulgacand2012.tse.jus.br/divulgacand2012/mostrarFichaCandidato.action?sqCandidato=20000000519&codigoMunicipio=27014&dtUltimaAtualizacao=20121025121033');
-    $foto = $html->find("img",0);
-    echo 'http://divulgacand2012.tse.jus.br/divulgacand2012/'.$foto->src;
-    
-    //$url = 'http://s3.amazonaws.savoir.com.br/cea.com.br/imagem/cadastrocqlv/imagem/cadastrocqlv-53440.jpg';
-    $url = 'http://divulgacand2012.tse.jus.br/divulgacand2012/'.$foto->src;;
-    $enderecoImg = "./imagem1/tucano.jpg";
-    $image = file_get_contents($url);
-    file_put_contents($enderecoImg, $image);
-    fclose($enderecoImg);
-     
-     */
+/*
+<html>
 
-    include './properties.php';
-    include "./consultasSPARQL.php";
-    include './upgrade.database.php';
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+        
+        <script>
+            function myFunction() {
+                location.reload();
+            }
+</script>
+    </head>
     
-    //$nome = 
-    
-    $id = existePoli("JOSÉ RODRIGUES GOMES", "13/09/1953");
-    
-    echo $id.'</br>';
-    
-    //não existe politico no banco
-    if($id == 0){
-        //politico();
-        //eleicao();
-        //dadosPessoais();
+    <body onload="myFunction()">
+        <?php
+        echo rand(0, 10);
+        //<meta HTTP-EQUIV='refresh' CONTENT='5;URL=teste2.php'>
+        ?>
+    </body>
+</html>
+ */
+ $arq = fopen("dadosTeste.txt", "r+");
+ 
+  
+   while(!feof($arq)){
+     $linha = fgets($arq);
+     $palavras = explode(" ", $linha);
+     $i = 0;
+     foreach ($palavras as $palavra){
+         echo $i.' '.$palavra.'</br>';
+         $i++;
+     }
+     $i = 0;
+     echo count($palavras);
+ }
+   
+  
+  
+   /*
+   $i = 0;
+    while ($i < 10000) {
+        fwrite($arq, "teste1 ");
+        $i++;
     }
-    //politco existe no banco
-    else{
-        //Politico já existe no banco
-        if(count($consultaSparql) == 0){
-            // chamar a função politico
-            echo "polico ainda não existe no banco";
-        }
-        else
-            "politico já existi no banco";
-        //function election
-        //function dados pessoais
-    }
+    */
+   
     
     
+ fclose($arq);
 ?>
