@@ -29,14 +29,15 @@
 		$resposta =  str_replace("http://ligadonospoliticos.com.br/politico/","", $resposta);	//retorna id do politico?!	
                 $respostaJson = json_decode($resposta);
                 $respostaJson = $respostaJson->results;
-                $respostaJson = $respostaJson->bindings[0];
-                $respostaJson = $respostaJson->id;
-                $respostaJson = $respostaJson->value;
-                $respostaJson = (int)$respostaJson;
-		if($respostaJson == null){
-                    return 0;}
-		if($respostaJson != null){return $respostaJson;}
-
+                if(isset($respostaJson->bindings[0])){
+                    $respostaJson = $respostaJson->bindings[0];
+                    $respostaJson = $respostaJson->id;
+                    $respostaJson = $respostaJson->value;
+                    $respostaJson = (int)$respostaJson;
+                    return $respostaJson;
+                }
+                else
+                    return 0;
 	}
 
     function prox (){
@@ -706,7 +707,7 @@
 
 
            			}";
-
+               
                 //echo $endereco;
 		$url = urlencode($endereco);
 		$sparqlURL = 'http://localhost:10035/repositories/politicos_brasileiros?query='.$url.'+limit+1';
@@ -805,7 +806,14 @@
 			if ($cargo != null ){ $NewCargo = $cargo ;}else{ $NewCargo = $objects[0]->cargo ;}
 			if ($cidade != null ){ $NewCidade = $cidade ;}else{ $NewCidade = $objects[0]->cidade ;}
 			if ($cargo_uf != null ){ $NewCargoUf = $cargo_uf ;}else{ $NewCargoUf = $objects[0]->cargo_uf ;}
-			if ($resultado != null ){ $NewResultado = $resultado ;}else{ $NewResultado = $objects[0]->resultado ;}
+			if ($resultado != null ){ 
+                            $NewResultado = $resultado ;
+                        }else{ 
+                            if(!empty($objects[0]->resultado))
+                                $NewResultado = $objects[0]->resultado ;
+                            else
+                                $NewResultado = null;
+                        }
 			if ($nome_coligacao != null ){ $NewNomeColigacao = $nome_coligacao ;}else{ $NewNomeColigacao = $objects[0]->nome_coligacao ;}
 			if ($partidos_coligacao != null ){ $NewPartidosColigacao = $partidos_coligacao ;}else{ $NewPartidosColigacao= $objects[0]->partidos_coligacao ;}
 			if ($situacao_candidatura != null ){ $NewSituacaoCandidatura = $situacao_candidatura ;}else{ $NewSituacaoCandidatura = $objects[0]->situacao_candidatura ;}
@@ -910,8 +918,6 @@
 		    	curl_setopt($curl,CURLOPT_HTTPHEADER,array('Accept: '.$format ));
 		    	$resposta = curl_exec( $curl );
 		    	curl_close($curl);
-
-
 		}
 		
 	}
