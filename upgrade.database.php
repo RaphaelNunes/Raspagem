@@ -1997,7 +1997,7 @@
                         //$endereco = $endereco."$politico  polbr:state-of-birth \"$NewEstadoNascimento\" . ";
                     if (isset($NewSite)){
                         foreach ($NewSite as $new)
-                            $endereco = $endereco."$politico  foaf:homepage <$new> .";
+                            $endereco = $endereco."$politico  foaf:homepage <". htmlentities($new, ENT_QUOTES, "UTF-8")."> .";
                     }
                     if (isset($NewCargo))
                         $endereco = $endereco."$politico  pol:Office \"$NewCargo\" .";
@@ -2079,7 +2079,7 @@
                     if (isset($site)){
                         $sites = separaPagina($site);
                         foreach ($sites as $sit)
-                            $endereco = $endereco . "$novopolitico foaf:homepage <$sit> .";
+                            $endereco = $endereco . "$novopolitico foaf:homepage <". htmlentities($new, ENT_QUOTES, "UTF-8")."> .";
                     }
                     if (isset($cargo))
                         $endereco = $endereco . "$novopolitico pol:Office \"$cargo\" .";

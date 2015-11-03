@@ -6,8 +6,8 @@ include '../consultasSPARQL.php';
 
 error_reporting(E_ALL);
 $arquivo = fopen('dadosCompletos.txt', 'r');
-$de = 21500;
-$ate = 22000;
+$de = 447;
+$ate = 448;
 $atual = 0;
 while(!feof($arquivo) && $atual <= $ate){
     $linha = fgets($arquivo);

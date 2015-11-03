@@ -1,13 +1,4 @@
 <?php
-    /*
-        // codigo para baixar imagem
-        $url = 'http://s3.amazonaws.savoir.com.br/cea.com.br/imagem/cadastrocqlv/imagem/cadastrocqlv-53440.jpg';
-        $enderecoImg = "./imagem/tucanoo2.jpg";
-        $image = file_get_contents($url);
-        file_put_contents($enderecoImg, $image);
-        fclose($enderecoImg);
-     */
- 
      error_reporting(E_ALL);
      include '../consultasSPARQL.php';
      include_once '../properties.php';
@@ -17,7 +8,8 @@
     $caminhoDir = 'Resultado2012';
     leDiretorio($caminhoDir);
     
-     
+     $arquivos = array();
+     $cont = 0;
     function leDiretorio($caminhoDir){
         
         $diretorio = dir($caminhoDir);
@@ -26,13 +18,18 @@
             if($arquivo != '.' && $arquivo != '..')
             {
                 $caminhoArq = $caminhoDir.'/'.$arquivo; 
-                echo $caminhoArq.'</br>';
-                leArquivoESalvaNoBanco($caminhoArq);
+                $arquivos[$cont] = $caminhoArq;
+                $cont++;
+                //leArquivoESalvaNoBanco($caminhoArq);
             }
             
         } 
         $diretorio -> close();
-         
+       //ordena os arquivos para não inserir o resultado da segunda eleição antes do resultado da primeira
+       asort($arquivos);
+        
+        foreach ($arquivos as $arquivo)
+            leArquivoESalvaNoBanco($arquivo);
     }
     
     function leArquivoESalvaNoBanco($caminhoArq){
@@ -74,19 +71,9 @@
      
      //seleciona qual resultado colocar para o candidato
      function selecionaCandidatos($ano, $cidade ,$estado, $numero_urna , $resultado){
-        /*
-        $consulta = 'select ?id ?situacao
-                        where{
-                          ?id polbr:election ?election.
-                          ?election timeline:atYear "'.$ano.'".
-                          ?election geospecies:State ?estado.
-                          filter(?estado = "'.$estado.'")
-                          ?election geospecies:City ?cidade.
-                          filter (regex(?cidade,"'.$cidade.'","i") ).
-                          ?election biblio:number "'.$numero_urna.'".
-                          ?election polbr:situation ?situacao.
-                                    }';
-         */
+        $arq = fopen("dadosAtualiza.txt", "a+");
+        fwrite($arq, $ano." ".$cidade." ".$estado." ".$numero_urna." ".$resultado."\n");
+        fclose($arq);
         $consulta = 'select ?id ?situacao
 where{ ?id polbr:election ?election.
       ?election timeline:atYear "'.$ano.'".
@@ -104,10 +91,13 @@ where{ ?id polbr:election ?election.
                 $situacao = explode(" (", $situacao);
                 //Envia o resultado oficial
                 if(strcmp($situacao[0], "APTO") == 0)
-                    resultado ($resultado_cand['id'], $resultado, $ano);
+                    resultado ($resultado_cand['id'], $resultado, $ano, $numero_urna);
                 //Coloca o resultado como Não eleito
                 else if(strcmp($situacao[0], "INAPTO") == 0)
-                    resultado ($resultado_cand['id'], "Não Eleito", $ano);
+                    resultado ($resultado_cand['id'], "Não Eleito", $ano, $numero_urna);
+                $arq = fopen("Existem.txt", "a+");
+                fwrite($arq, $resultado_cand['id']." ".$resultado." ".$ano." ".$numero_urna."\n");
+                fclose($arq);
              }
          }
      }
@@ -117,13 +107,14 @@ where{ ?id polbr:election ?election.
     //////////////// 
     //Conferir o caso o candidato tenha mais de um election
      ///////////
-     function resultado($id , $resultado ,$ano){
+     function resultado($id , $resultado ,$ano, $numero_urna){
          $format = 'application/sparql-results+json';
 		
 		$endereco ='select ?resultado
                             where{
                             <'.$id.'> polbr:election ?election.
                             ?election timeline:atYear "'.$ano.'".
+                            ?election biblio:number "'.$numero_urna.'".
                             ?election earl:outcome ?resultado.
                                             }';
                 
@@ -172,6 +163,8 @@ where{ ?id polbr:election ?election.
 			//deletando dados para inserir dados novos
 			$where = 'WHERE { <'.$id.'>  polbr:election ?election.
 					 ?election timeline:atYear "'.$ano.'".
+                                         ?election biblio:number ?numero.
+                                         filter(?numero = "'.$numero_urna.'")
                                         }';			
 
 			$endereco ='DELETE { ?election earl:outcome "'.$NewResultado.'" }
@@ -195,10 +188,12 @@ where{ ?id polbr:election ?election.
 
 			
 
-			//inserindo os novos
+			//inserindo o novo
 			$endereco = 'INSERT { ?election earl:outcome "'.$NewResultado.'" }
                                      WHERE { <'.$id.'>  polbr:election ?election.
 					 ?election timeline:atYear "'.$ano.'".
+                                         ?election biblio:number ?numero.
+                                         filter(?numero = "'.$numero_urna.'")
                                         }';
                         
 			$url = urlencode($endereco);
@@ -221,6 +216,8 @@ where{ ?id polbr:election ?election.
 			$endereco = 'INSERT { ?election earl:outcome "'.$resultado.'" }
                                      WHERE { <'.$id.'>  polbr:election ?election.
 					 ?election timeline:atYear "'.$ano.'".
+                                         ?election biblio:number ?numero.
+                                         filter(?numero = "'.$numero_urna.'")
                                         }';
                         
 			$url = urlencode($endereco);
